@@ -1,4 +1,4 @@
-package core_test
+package natsproxy_test
 
 import (
 	"testing"
@@ -7,44 +7,35 @@ import (
 	"github.com/labstack/echo/middleware"
 	"time"
 	"net/http"
-	"gitlab.com/fino/banksearch/core"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/fino-digital/nats-http-proxy"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateNatsProxy(t *testing.T) {
 	e := echo.New()
 	e.HideBanner = true
 
-	e.Use(core.BindMongoContext())
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
 
-	const apiPrefix = "/api/v0/banksearch"
 
 	nc, _ := nats.Connect(nats.DefaultURL)
 	c, _ := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 
-	// Simple Publisher
-	nc.Publish("foo", []byte("Hello World"))
+	testData := map[string]string{
+		"just": "some",
+		"testing": "data",
+	}
 
-	// Simple Async Subscriber
-	nc.Subscribe("foo", func(m *nats.Msg) {
-		t.Logf("Received a message: %s\n", string(m.Data))
+	e.GET("/", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, testData)
 	})
 
-	e.GET(apiPrefix+"/", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, bson.M{
-			"pooow": "pufff",
-		})
-	})
+	natsproxy.CreateNatsProxy(e, nc)
 
-	core.CreateNatsProxy(e, c)
-
-	var resp bson.M
-	err := c.Request(apiPrefix+"/", nil, &resp, time.Second * 15)
-	if err == nil {
-		t.Log(resp)
-	} else {
-		t.Log(err)
+	var resp map[string]string
+	err := c.Request("/", nil, &resp, time.Second * 15)
+	if assert.NoError(t, err) {
+		assert.Equal(t, testData, resp)
 	}
 }
