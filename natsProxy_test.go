@@ -1,4 +1,4 @@
-package core_test
+package natsproxy_test
 
 import (
 	"testing"
