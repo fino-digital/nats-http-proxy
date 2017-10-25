@@ -1,4 +1,4 @@
-package natsproxy_test
+package core_test
 
 import (
 	"testing"
@@ -6,9 +6,9 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"time"
-	"gitlab.com/fino/banksearch/models"
 	"net/http"
 	"gitlab.com/fino/banksearch/core"
+	"gopkg.in/mgo.v2/bson"
 )
 
 func TestCreateNatsProxy(t *testing.T) {
@@ -33,14 +33,14 @@ func TestCreateNatsProxy(t *testing.T) {
 	})
 
 	e.GET(apiPrefix+"/", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, models.Bank{
-			ShortName: "peew",
+		return c.JSON(http.StatusOK, bson.M{
+			"pooow": "pufff",
 		})
 	})
 
 	core.CreateNatsProxy(e, c)
 
-	var resp models.Bank
+	var resp bson.M
 	err := c.Request(apiPrefix+"/", nil, &resp, time.Second * 15)
 	if err == nil {
 		t.Log(resp)
