@@ -1,4 +1,4 @@
-package core
+package natsproxy
 
 import (
 	"github.com/labstack/echo"
