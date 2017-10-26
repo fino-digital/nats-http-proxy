@@ -18,6 +18,7 @@ type (
 		RemoteAddr  string             `protobuf:"bytes,3,opt,name=RemoteAddr,json=remoteAddr" json:"RemoteAddr,omitempty"`
 		Body        []byte             `protobuf:"bytes,4,opt,name=Body,json=body,proto3" json:"Body,omitempty"`
 		Form        url.Values         `protobuf:"bytes,5,rep,name=Form,json=form" json:"Form,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+		PostForm    url.Values		   `protobuf:"bytes,5,rep,name=PostForm,json=postForm" json:"PostForm,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 		Header      http.Header        `protobuf:"bytes,6,rep,name=Header,json=header" json:"Header,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 		WebSocketID string             `protobuf:"bytes,7,opt,name=WebSocketID,json=webSocketID" json:"WebSocketID,omitempty"`
 	}
@@ -44,6 +45,7 @@ func CreateNatsProxy(e *echo.Echo, c *nats.Conn) {
 			}
 
 			httpReq.Header = req.Header
+			httpReq.PostForm = req.PostForm
 			httpReq.Form = req.Form
 			httpReq.RemoteAddr = req.RemoteAddr
 
