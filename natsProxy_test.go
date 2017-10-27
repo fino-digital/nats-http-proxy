@@ -21,20 +21,21 @@ func TestCreateNatsProxy(t *testing.T) {
 
 	nc, _ := nats.Connect(nats.DefaultURL)
 	c, _ := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
+	//rc := natsproxy.RestNatsEncodedConn{c}
 
-	testData := map[string]string{
-		"just": "some",
-		"testing": "data",
-	}
-
-	e.GET("/", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, testData)
+	testData := "woossp"
+	e.GET("test/:user/peew", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, c.Param("user"))
 	})
+
+	/*e.HTTPErrorHandler = func(err error, c echo.Context) {
+		t.Log(err, c)
+	}*/
 
 	natsproxy.CreateNatsProxy(e, nc)
 
-	var resp map[string]string
-	err := c.Request("/", nil, &resp, time.Second * 15)
+	var resp string
+	err := natsproxy.RestRequest(c, "test/woossp/peew", nil, &resp, time.Second * 5)
 	if assert.NoError(t, err) {
 		assert.Equal(t, testData, resp)
 	}

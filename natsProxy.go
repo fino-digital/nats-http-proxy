@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"bytes"
 	"encoding/json"
+	"regexp"
+	"time"
+	"strings"
 )
 
 type (
@@ -22,13 +25,52 @@ type (
 		Header      http.Header        `protobuf:"bytes,6,rep,name=Header,json=header" json:"Header,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 		WebSocketID string             `protobuf:"bytes,7,opt,name=WebSocketID,json=webSocketID" json:"WebSocketID,omitempty"`
 	}
+
+	RestNatsEncodedConn struct {
+		*nats.EncodedConn
+	}
 )
+
+var (
+	pathrgxp = regexp.MustCompile(":[A-z0-9$-_.+!*'(),]{1,}")
+)
+// SubscribeURLToNats buils the subscription
+// channel name with placeholders
+// The placeholders are than used to obtain path variables
+func SubscribeURLToNats(urlPath string) string {
+	subURL := pathrgxp.ReplaceAllString(urlPath, "*")
+	subURL = strings.Replace(subURL, "/", ".", -1)
+	return subURL
+}
+
+func RestRequest(nc *nats.EncodedConn, subj string, v interface{}, vPtr interface{}, timeout time.Duration) error {
+	var req Request
+	switch reqT := v.(type) {
+	case Request:
+		req = reqT
+	default:
+		req = Request{}
+	}
+
+	req.URL.Path = subj
+	req.URL.RawPath = subj
+	return nc.Request(SubscribeURLToNats(subj), req, vPtr, timeout)
+}
+
+func (rnc *RestNatsEncodedConn) RestRequest (subj string, v interface{}, vPtr interface{}, timeout time.Duration) error {
+	req := v.(Request)
+	req.URL.Path = subj
+	return rnc.Request(SubscribeURLToNats(subj), req, vPtr, timeout)
+}
 
 // We use a nats.Conn here and not an EncodedConn because we only pass the encoded data on
 func CreateNatsProxy(e *echo.Echo, c *nats.Conn) {
 	// loop over the routes of the echo server and create a subscription to each of them
+	r := regexp.MustCompile(":.*/")
 	for _, route := range e.Routes() {
-		c.Subscribe(route.Path, func(m *nats.Msg) {
+		// first we add the wildcards at the appropiate positions, then we replace the slashes with dots to make the wildcards work
+		newRoute := SubscribeURLToNats(r.ReplaceAllString(route.Path, "*/"))
+		c.Subscribe(newRoute, func(m *nats.Msg) {
 			// get our fakes req obj from the message
 			var req Request
 			err := json.Unmarshal(m.Data, &req)
@@ -39,7 +81,7 @@ func CreateNatsProxy(e *echo.Echo, c *nats.Conn) {
 			}
 
 			// Recreate a real request object from our fake object
-			httpReq, err := http.NewRequest(reqMethod, m.Subject, bytes.NewReader(req.Body))
+			httpReq, err := http.NewRequest(reqMethod, "/" + req.URL.Path, bytes.NewReader(req.Body))
 			if err != nil {
 				return
 			}
