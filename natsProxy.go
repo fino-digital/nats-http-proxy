@@ -43,7 +43,7 @@ func SubscribeURLToNats(urlPath string) string {
 	return subURL
 }
 
-func RestRequest(nc *nats.EncodedConn, subj string, v interface{}, vPtr interface{}, timeout time.Duration) error {
+func RestRequestEnc(nc *nats.EncodedConn, subj string, v interface{}, vPtr interface{}, timeout time.Duration) error {
 	var req Request
 	switch reqT := v.(type) {
 	case Request:
@@ -55,6 +55,26 @@ func RestRequest(nc *nats.EncodedConn, subj string, v interface{}, vPtr interfac
 	req.URL.Path = subj
 	req.URL.RawPath = subj
 	return nc.Request(SubscribeURLToNats(subj), req, vPtr, timeout)
+}
+
+func RestRequest(nc *nats.Conn, subj string, v interface{}, timeout time.Duration) (*nats.Msg, error) {
+	var req Request
+	switch reqT := v.(type) {
+	case Request:
+		req = reqT
+	default:
+		req = Request{}
+	}
+
+	req.URL.Path = subj
+	req.URL.RawPath = subj
+
+	jsonReq, err := json.Marshal(req)
+	if err !=nil {
+		return nil, err
+	}
+
+	return nc.Request(SubscribeURLToNats(subj), jsonReq, timeout)
 }
 
 func (rnc *RestNatsEncodedConn) RestRequest (subj string, v interface{}, vPtr interface{}, timeout time.Duration) error {
