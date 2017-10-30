@@ -3,14 +3,15 @@ package natsproxy
 import (
 	"github.com/labstack/echo"
 	"github.com/nats-io/go-nats"
-	"net/http/httptest"
 	"net/url"
 	"net/http"
-	"bytes"
 	"encoding/json"
 	"regexp"
 	"time"
 	"strings"
+	"log"
+	"bytes"
+	"net/http/httptest"
 )
 
 type (
@@ -37,10 +38,12 @@ var (
 // SubscribeURLToNats buils the subscription
 // channel name with placeholders
 // The placeholders are than used to obtain path variables
-func SubscribeURLToNats(urlPath string) string {
-	subURL := pathrgxp.ReplaceAllString(urlPath, "*")
-	subURL = strings.Replace(subURL, "/", ".", -1)
-	return subURL
+func URLToNats(urlPath string) string {
+	subUrl := pathrgxp.ReplaceAllString(urlPath, "*")
+	subUrl = strings.Replace(subUrl, "/", ".", -1)
+
+	subUrl = strings.Trim(subUrl, "./")
+	return subUrl
 }
 
 func RestRequestEnc(nc *nats.EncodedConn, subj string, v interface{}, vPtr interface{}, timeout time.Duration) error {
@@ -54,7 +57,8 @@ func RestRequestEnc(nc *nats.EncodedConn, subj string, v interface{}, vPtr inter
 
 	req.URL.Path = subj
 	req.URL.RawPath = subj
-	return nc.Request(SubscribeURLToNats(subj), req, vPtr, timeout)
+
+	return nc.Request(URLToNats(subj), req, vPtr, timeout)
 }
 
 func RestRequest(nc *nats.Conn, subj string, v interface{}, timeout time.Duration) (*nats.Msg, error) {
@@ -74,13 +78,13 @@ func RestRequest(nc *nats.Conn, subj string, v interface{}, timeout time.Duratio
 		return nil, err
 	}
 
-	return nc.Request(SubscribeURLToNats(subj), jsonReq, timeout)
+	return nc.Request(URLToNats(subj), jsonReq, timeout)
 }
 
 func (rnc *RestNatsEncodedConn) RestRequest (subj string, v interface{}, vPtr interface{}, timeout time.Duration) error {
 	req := v.(Request)
 	req.URL.Path = subj
-	return rnc.Request(SubscribeURLToNats(subj), req, vPtr, timeout)
+	return rnc.Request(URLToNats(subj), req, vPtr, timeout)
 }
 
 // We use a nats.Conn here and not an EncodedConn because we only pass the encoded data on
@@ -89,7 +93,8 @@ func CreateNatsProxy(e *echo.Echo, c *nats.Conn) {
 	r := regexp.MustCompile(":.*/")
 	for _, route := range e.Routes() {
 		// first we add the wildcards at the appropiate positions, then we replace the slashes with dots to make the wildcards work
-		newRoute := SubscribeURLToNats(r.ReplaceAllString(route.Path, "*/"))
+		newRoute := URLToNats(r.ReplaceAllString(route.Path, "*/"))
+		log.Println("Adding to nats: " + newRoute)
 		c.Subscribe(newRoute, func(m *nats.Msg) {
 			// get our fakes req obj from the message
 			var req Request
@@ -101,7 +106,7 @@ func CreateNatsProxy(e *echo.Echo, c *nats.Conn) {
 			}
 
 			// Recreate a real request object from our fake object
-			httpReq, err := http.NewRequest(reqMethod, "/" + req.URL.Path, bytes.NewReader(req.Body))
+			httpReq, err := http.NewRequest(reqMethod, route.Path, bytes.NewReader(req.Body))
 			if err != nil {
 				return
 			}
