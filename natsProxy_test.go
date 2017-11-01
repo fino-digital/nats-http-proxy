@@ -11,36 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEncNatsProxy(t *testing.T) {
-	e := echo.New()
-	e.HideBanner = true
-
-	e.Use(middleware.Recover())
-	e.Use(middleware.Logger())
-
-
-	nc, _ := nats.Connect(nats.DefaultURL)
-	c, _ := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
-	//rc := natsproxy.RestNatsEncodedConn{c}
-
-	testData := "woossp"
-	e.GET("test/:user/peew", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, c.Param("user"))
-	})
-
-	/*e.HTTPErrorHandler = func(err error, c echo.Context) {
-		t.Log(err, c)
-	}*/
-
-	natsproxy.CreateNatsProxy(e, nc)
-
-	var resp string
-	err := natsproxy.RestRequestEnc(c, "test/woossp/peew", nil, &resp, time.Second * 5)
-	if assert.NoError(t, err) {
-		assert.Equal(t, testData, resp)
-	}
-}
-
 func TestNatsProxy(t *testing.T) {
 	e := echo.New()
 	e.HideBanner = true
@@ -49,22 +19,36 @@ func TestNatsProxy(t *testing.T) {
 	e.Use(middleware.Logger())
 
 
-	nc, _ := nats.Connect(nats.DefaultURL)
-	//rc := natsproxy.RestNatsEncodedConn{c}
+	// Set up our natsconnections
+	c, _ := nats.Connect(nats.DefaultURL)
+	nc, _ := nats.NewEncodedConn(c, nats.JSON_ENCODER)
+	rc := natsproxy.RestNatsEncConn{nc}
 
-	testData := "heey"
-	e.GET("test/:user/peew", func(c echo.Context) error {
-		return c.HTML(http.StatusOK, "heey")
+	testParam := "testParam"
+	testQuery := "testQuery"
+	testHeader := "testHeaderKey"
+	testHeaderValue := "testHeaderValue"
+
+	e.POST("test/:testParam/peew", func(c echo.Context) error {
+		c.Request().ParseForm()
+		return c.JSON(http.StatusOK, []string{
+			c.Param("testParam"),
+			c.QueryParam("peew"),
+			c.Request().Header.Get(testHeader),
+		})
 	})
 
-	/*e.HTTPErrorHandler = func(err error, c echo.Context) {
-		t.Log(err, c)
-	}*/
+	// Automatically proxy all routes
+	natsproxy.CreateNatsProxy(e, c)
 
-	natsproxy.CreateNatsProxy(e, nc)
+	req, err := http.NewRequest("POST","https://peew.com/test/"+testParam+"/peew?peew="+testQuery, nil)
 
-	resp, err := natsproxy.RestRequest(nc, "test/woossp/peew", nil, time.Second * 5)
+	req.Header.Set(testHeader, testHeaderValue)
+	// Send a fake http over nats and auto unmarshal the result
+	var res []string
+	err = rc.RestRequest(req.URL.Path, req , &res, time.Second * 45)
 	if assert.NoError(t, err) {
-		assert.Equal(t, testData, string(resp.Data[:]))
+		assert.Equal(t, []string{testParam, testQuery, testHeaderValue}, res)
+
 	}
 }
