@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"github.com/fino-digital/nats-http-proxy"
 	"github.com/stretchr/testify/assert"
+	"log"
+	natsproxy2 "github.com/sohlich/nats-proxy"
+	"encoding/json"
 )
 
 func TestNatsProxy(t *testing.T) {
@@ -41,10 +44,16 @@ func TestNatsProxy(t *testing.T) {
 	// Automatically proxy all routes
 	natsproxy.CreateNatsProxy(e, c)
 
-	req, err := http.NewRequest("POST","https://peew.com/test/"+testParam+"/peew?peew="+testQuery, nil)
+	// nats/ prefix is important!
+	req, err := http.NewRequest("POST","https://peew.com/nats/test/"+testParam+"/peew?peew="+testQuery, nil)
 
 	req.Header.Set(testHeader, testHeaderValue)
 	// Send a fake http over nats and auto unmarshal the result
+
+	pewReq := natsproxy2.NewRequest()
+	pewReq.FromHTTP(req)
+	jsonReq, err := json.Marshal(pewReq)
+	log.Println(string(jsonReq[:]))
 	var res []string
 	err = rc.RestRequest(req.URL.Path, req , &res, time.Second * 45)
 	if assert.NoError(t, err) {

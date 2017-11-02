@@ -55,8 +55,6 @@ func (rnc *RestNatsConn)RestRequest(subj string, req *http.Request, timeout time
 		return nil, err
 	}
 
-	log.Println(URLToNats(subj))
-
 	return rnc.Request(URLToNats(subj), jsonReq, timeout)
 }
 
@@ -64,18 +62,20 @@ func (rnc *RestNatsConn)RestRequest(subj string, req *http.Request, timeout time
 func (rnec *RestNatsEncConn) RestRequest (subj string, req *http.Request, vPtr interface{}, timeout time.Duration) error {
 	natsReq := legnatsproxy.NewRequest()
 	err := natsReq.FromHTTP(req)
-	req.ParseForm()
-	log.Println(req.PostFormValue("testHeader"))
 
 	if err !=nil {
 		return err
 	}
+
 	return rnec.Request(URLToNats(subj), natsReq, vPtr, timeout)
 }
 
 // ToHTTP - creates a real http req from a fake but serializable one
 func ToHTTP(req *legnatsproxy.Request) (*http.Request, error) {
+	// replace our custom prefix from the actual path
+	req.URL = strings.Replace(req.URL, "/nats/", "/", -1)
 	parsedURL, err := url.Parse(req.URL)
+
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func CreateNatsProxy(e *echo.Echo, c *nats.Conn) {
 	r := regexp.MustCompile(":.*/")
 	for _, route := range e.Routes() {
 		// first we add the wildcards at the appropiate positions, then we replace the slashes with dots to make the wildcards work
-		newRoute := URLToNats(r.ReplaceAllString(route.Path, "*/"))
+		newRoute := "nats."+ URLToNats(r.ReplaceAllString(route.Path, "*/"))
 		log.Println("Adding to nats: " + newRoute)
 		c.Subscribe(newRoute, func(m *nats.Msg) {
 			// get our fakes req obj from the message
