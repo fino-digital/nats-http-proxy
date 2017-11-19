@@ -114,8 +114,8 @@ func CreateNatsProxy(e *echo.Echo, c *nats.Conn) {
 		newRoute := "nats."+ URLToNats(r.ReplaceAllString(route.Path, "*/"))
 		log.Println("Adding to nats: " + newRoute)
 		c.Subscribe(newRoute, func(m *nats.Msg) {
-			capturedRoute := *route
-			log.Println("Got req for"+ capturedRoute.Path)
+			routePath := route.Path
+			log.Println("Got req for "+ routePath)
 			log.Println(string(m.Data))
 			// get our fakes req obj from the message
 			var req legnatsproxy.Request
@@ -130,7 +130,7 @@ func CreateNatsProxy(e *echo.Echo, c *nats.Conn) {
 			// Make echo invoke our faked request
 			rec := httptest.NewRecorder()
 			ctx := e.NewContext(httpReq, rec)
-			e.Router().Find(req.Method, capturedRoute.Path, ctx)
+			e.Router().Find(req.Method, routePath, ctx)
 			e.ServeHTTP(ctx.Response(), ctx.Request())
 
 
