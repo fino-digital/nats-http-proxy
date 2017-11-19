@@ -113,8 +113,8 @@ func CreateNatsProxy(e *echo.Echo, c *nats.Conn) {
 		// first we add the wildcards at the appropiate positions, then we replace the slashes with dots to make the wildcards work
 		newRoute := "nats."+ URLToNats(r.ReplaceAllString(route.Path, "*/"))
 		log.Println("Adding to nats: " + newRoute)
+		routePath := route.Path
 		c.Subscribe(newRoute, func(m *nats.Msg) {
-			routePath := route.Path
 			log.Println("Got req for "+ routePath)
 			log.Println(string(m.Data))
 			// get our fakes req obj from the message
