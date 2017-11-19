@@ -114,6 +114,8 @@ func CreateNatsProxy(e *echo.Echo, c *nats.Conn) {
 		newRoute := "nats."+ URLToNats(r.ReplaceAllString(route.Path, "*/"))
 		log.Println("Adding to nats: " + newRoute)
 		c.Subscribe(newRoute, func(m *nats.Msg) {
+			log.Println("Got req for"+ route.Path)
+			log.Println(string(m.Data))
 			// get our fakes req obj from the message
 			var req legnatsproxy.Request
 			err := json.Unmarshal(m.Data, &req)
