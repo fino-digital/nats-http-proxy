@@ -46,6 +46,8 @@ func (rnc *RestNatsConn)RestRequest(subj string, req *http.Request, timeout time
 	natsReq :=legnatsproxy.NewRequest()
 	err := natsReq.FromHTTP(req)
 
+	log.Println("making req to:" + URLToNats(subj))
+
 	if err !=nil {
 		return nil, err
 	}
@@ -54,6 +56,8 @@ func (rnc *RestNatsConn)RestRequest(subj string, req *http.Request, timeout time
 	if err !=nil {
 		return nil, err
 	}
+
+	log.Println("making req to22:" + URLToNats(subj))
 
 	return rnc.Request(URLToNats(subj), jsonReq, timeout)
 }
