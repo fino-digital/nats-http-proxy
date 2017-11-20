@@ -38,6 +38,7 @@ func URLToNats(urlPath string) string {
 	subUrl = strings.Replace(subUrl, "/", ".", -1)
 
 	subUrl = strings.Trim(subUrl, "./")
+	subUrl = strings.Trim(subUrl, ".*")
 	return subUrl
 }
 
